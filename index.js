@@ -54,6 +54,9 @@ async function main(config) {
 		lastStart = lastStart.add(1, time_unit);
 	}
 
+	datePairs[0].start = start.format(dateFormat)
+	datePairs[numPairs-1].end = end.format(dateFormat)
+
 	// ? https://www.docs.developers.amplitude.com/analytics/apis/export-api/#endpoints
 	const url = config.region === 'US' ? 'https://amplitude.com/api/2/export' : 'https://analytics.eu.amplitude.com/api/2/export';
 	consumeData: for (const dates of datePairs) {
