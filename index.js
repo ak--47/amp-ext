@@ -34,6 +34,7 @@ async function main(config) {
 	const TEMP_DIR = path.resolve(tempDir);
 	const DESTINATION_DIR = path.resolve(destDir);
 	await u.mkdir(TEMP_DIR);
+	await u.mkdir(DESTINATION_DIR);
 	const start = dayjs.utc(start_date).startOf('day');
 	const end = dayjs.utc(end_date).endOf('day');
 	const delta = end.diff(start, time_unit);
@@ -190,7 +191,7 @@ function cli() {
 		.command('$0', 'extract data from amplitude', () => { })
 		.option("api_key", {
 			demandOption: true,
-			alias: "key",			
+			alias: "key",
 			describe: 'amplitude API key',
 			type: 'string'
 		})
@@ -227,7 +228,7 @@ function cli() {
 		})
 		.option("start_date", {
 			demandOption: true,
-			alias: 'start',			
+			alias: 'start',
 			describe: 'start date for extract',
 			type: 'string'
 		})
@@ -236,9 +237,9 @@ function cli() {
 			alias: 'end',
 			describe: 'end date for extract',
 			type: 'string'
-		})		
+		})
 		.help()
-		.argv;	
+		.argv;
 	//@ts-ignore
 	return args;
 }
