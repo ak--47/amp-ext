@@ -1,3 +1,5 @@
+#! /usr/bin/env node
+
 // @ts-check
 import u from "ak-tools";
 import dayjs from "dayjs";
