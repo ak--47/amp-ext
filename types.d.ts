@@ -31,4 +31,8 @@ interface Config {
      * where to put extracted data; must be a valid file path .... default is ./amplitude-data
      */
     destDir: string;
+    /**
+     * file to write logs; must be a valid file path .... default is ./amplitude-data
+     */
+    logFile: string;
 }

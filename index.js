@@ -17,6 +17,7 @@ import { execSync } from 'child_process';
 import esMain from 'es-main';
 import yargs from "yargs";
 
+let log = ``;
 
 /**
  * pulls data out of amplitude
@@ -30,11 +31,20 @@ async function main(config) {
 	const auth = "Basic " + Buffer.from(creds.key + ":" + creds.secret).toString('base64');
 
 
-	const { start_date, end_date, time_unit = 'day', tempDir = './tmp', destDir = './amplitude-data' } = config;
+	const {
+		start_date,
+		end_date,
+		time_unit = 'day',
+		tempDir = './tmp',
+		destDir = './amplitude-data',
+		logFile = `./log-${creds.key}-${Date.now()}.txt`
+	} = config;
 	const TEMP_DIR = path.resolve(tempDir);
 	const DESTINATION_DIR = path.resolve(destDir);
+	const LOG_FILE = path.resolve(logFile);
 	await u.mkdir(TEMP_DIR);
 	await u.mkdir(DESTINATION_DIR);
+	
 	const start = dayjs.utc(start_date).startOf('day');
 	const end = dayjs.utc(end_date).endOf('day');
 	const delta = end.diff(start, time_unit);
@@ -54,8 +64,8 @@ async function main(config) {
 		lastStart = lastStart.add(1, time_unit);
 	}
 
-	datePairs[0].start = start.format(dateFormat)
-	datePairs[numPairs-1].end = end.format(dateFormat)
+	datePairs[0].start = start.format(dateFormat);
+	datePairs[numPairs - 1].end = end.format(dateFormat);
 
 	// ? https://www.docs.developers.amplitude.com/analytics/apis/export-api/#endpoints
 	const url = config.region === 'US' ? 'https://amplitude.com/api/2/export' : 'https://analytics.eu.amplitude.com/api/2/export';
@@ -181,7 +191,7 @@ async function main(config) {
 	}
 	const extracted = (await u.ls(DESTINATION_DIR)).filter(f => f.endsWith('.json'));
 	l(`\nextracted ${u.comma(extracted.length)} files for ${u.comma(eventCount)} events\n`);
-
+	await u.touch(path.resolve(LOG_FILE), log);
 
 	return extracted;
 }
@@ -229,6 +239,12 @@ function cli() {
 			describe: 'where to write files',
 			type: 'string'
 		})
+		.option("logFile", {
+			demandOption: false,			
+			alias: "log",
+			describe: 'where to write logs',
+			type: 'string'
+		})
 		.option("start_date", {
 			demandOption: true,
 			alias: 'start',
@@ -248,6 +264,7 @@ function cli() {
 }
 
 function l(data) {
+	log += `${data}\n`;
 	console.log(data);
 }
 
