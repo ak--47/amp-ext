@@ -71,7 +71,7 @@ async function main(config) {
 					},
 					retry: {
 						limit: 1000,
-						statusCodes: [429, 500, 501, 503, 504],
+						statusCodes: [429, 500, 501, 503, 504, 502],
 						errorCodes: [],
 						methods: ['GET'],
 						noise: 100

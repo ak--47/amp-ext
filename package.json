@@ -1,6 +1,6 @@
 {
 	"name": "amplitude-extract",
-	"version": "1.0.3",
+	"version": "1.0.31",
 	"description": "pull data out of amplitude",
 	"main": "index.js",
 	"scripts": {
