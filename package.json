@@ -1,0 +1,30 @@
+{
+	"name": "amplitude-extract",
+	"version": "1.0.0",
+	"description": "pull data out of amplitude",
+	"main": "index.js",
+	"scripts": {
+		"scratch": "nodemon --inspect -i ./tmp -i ./amplitude-data scratch.js",
+		"prune": "rm -rf ./tmp/* && rm -rf ./amplitude-data/*",
+		"post": "npm publish"
+	},
+	"bin": {
+		"amplitude-extract": "./index.js"
+	},
+	"type": "module",
+	"keywords": [],
+	"author": "",
+	"license": "ISC",
+	"dependencies": {
+		"adm-zip": "^0.5.10",
+		"ak-tools": "^1.0.322",
+		"dayjs": "^1.11.7",
+		"es-main": "^1.2.0",
+		"got": "^12.6.0",
+		"node-gzip": "^1.1.2",
+		"yargs": "^17.7.1"
+	},
+	"devDependencies": {
+		"nodemon": "^2.0.22"
+	}
+}
