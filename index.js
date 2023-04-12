@@ -93,7 +93,7 @@ async function main(config) {
 					hooks: {
 						beforeRetry: [(req, resp, count) => {
 							try {
-								l(`got ${resp.message}...retrying request...#${count}`);
+								l(`got ${resp?.statusCode}...retrying request...#${count}`);
 							}
 							catch (e) {
 								//noop
@@ -108,7 +108,7 @@ async function main(config) {
 
 		}
 		catch (e) {
-			l(`${dayjs.utc(dates.start).format(logFormat)} → ${dayjs.utc(dates.end).format(logFormat)}: got ${e.response.statusCode}; NOT FOUND`);
+			l(`${dayjs.utc(dates.start).format(logFormat)} → ${dayjs.utc(dates.end).format(logFormat)}: got ${e?.response?.statusCode}; NOT FOUND`);
 			continue consumeData;
 		}
 	}
