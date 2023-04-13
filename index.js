@@ -17,7 +17,13 @@ import { execSync } from 'child_process';
 import esMain from 'es-main';
 import yargs from "yargs";
 
-let log = ``;
+let logText = ``;
+
+/*
+----
+MAIN
+----
+*/
 
 /**
  * pulls data out of amplitude
@@ -30,21 +36,27 @@ async function main(config) {
 	};
 	const auth = "Basic " + Buffer.from(creds.key + ":" + creds.secret).toString('base64');
 
-
 	const {
 		start_date,
 		end_date,
+		verbose = true,
+		region = "US",
 		time_unit = 'day',
 		tempDir = './tmp',
 		destDir = './amplitude-data',
-		logFile = `./log-${creds.key}-${Date.now()}.txt`
+		logFile = `./amplitude-export-log.txt`
 	} = config;
+	const l = log(verbose);
+	l('start\n\nsettings:');
+	l({ start_date, end_date, region, verbose, time_unit, tempDir, destDir, logFile });
+
+
 	const TEMP_DIR = path.resolve(tempDir);
 	const DESTINATION_DIR = path.resolve(destDir);
-	const LOG_FILE = path.resolve(logFile);
+	const LOG_FILE = logFile ? path.resolve(logFile) : false;
 	await u.mkdir(TEMP_DIR);
 	await u.mkdir(DESTINATION_DIR);
-	
+
 	const start = dayjs.utc(start_date).startOf('day');
 	const end = dayjs.utc(end_date).endOf('day');
 	const delta = end.diff(start, time_unit);
@@ -68,8 +80,10 @@ async function main(config) {
 	datePairs[numPairs - 1].end = end.format(dateFormat);
 
 	// ? https://www.docs.developers.amplitude.com/analytics/apis/export-api/#endpoints
-	const url = config.region === 'US' ? 'https://amplitude.com/api/2/export' : 'https://analytics.eu.amplitude.com/api/2/export';
+	const url = region === 'US' ? 'https://amplitude.com/api/2/export' : 'https://analytics.eu.amplitude.com/api/2/export';
+	l(`\n\n\tDOWNLOAD\n\n`)
 	consumeData: for (const dates of datePairs) {
+		const logPair = `${dayjs.utc(dates.start).format(logFormat)} → ${dayjs.utc(dates.end).format(logFormat)}`;
 		try {
 			await pipeline(
 				got.stream({
@@ -102,13 +116,13 @@ async function main(config) {
 					}
 
 				}),
-				fs.createWriteStream(path.resolve(`./tmp/${dates.start}--${dates.end}.zip`))
+				fs.createWriteStream(path.resolve(`${TEMP_DIR}/${dates.start}--${dates.end}.zip`))
 			);
-			l(`${dayjs.utc(dates.start).format(logFormat)} → ${dayjs.utc(dates.end).format(logFormat)}: got 200; OK`);
+			l(`${logPair}: SUCCESS 200`);
 
 		}
 		catch (e) {
-			l(`${dayjs.utc(dates.start).format(logFormat)} → ${dayjs.utc(dates.end).format(logFormat)}: got ${e?.response?.statusCode}; NOT FOUND`);
+			l(`${logPair}: ${e?.name || ""} ${e?.response?.statusCode || "unknown code"}; ${e?.message || "unknown error"}`);
 			continue consumeData;
 		}
 	}
@@ -124,8 +138,11 @@ async function main(config) {
 		u.rm(empty);
 	}
 	const downloadedFiles = (await u.ls(TEMP_DIR)).filter(path => path.endsWith('.zip'));
-
+	
+	l(`\n\n\tUNZIP\n\n`)
+	
 	unzip: for (const zipFile of downloadedFiles) {
+		l(`unzipping ${path.basename(zipFile)}`);
 		const fileId = zipFile.split('/').slice().pop().split('.')[0];
 		const dir = u.mkdir(path.resolve(`${TEMP_DIR}/${fileId}`));
 		try {
@@ -160,7 +177,10 @@ async function main(config) {
 	const writePath = path.resolve(DESTINATION_DIR);
 	let eventCount = 0;
 
+	l(`\n\n\tGUNZIP\n\n`)
+
 	ungzip: for (const file of gunzipped.flat()) {
+		l(`gunzipping ${path.basename(file)}`);
 		const newFileName = path.basename(file).split('_').slice(1).join("_").split('.gz')[0];
 		const dest = path.resolve(`${writePath}/${newFileName}`);
 
@@ -191,17 +211,37 @@ async function main(config) {
 	}
 	const extracted = (await u.ls(DESTINATION_DIR)).filter(f => f.endsWith('.json'));
 	l(`\nextracted ${u.comma(extracted.length)} files for ${u.comma(eventCount)} events\n`);
-	await u.touch(path.resolve(LOG_FILE), log);
+	if (LOG_FILE) await u.touch(path.resolve(LOG_FILE), logText);
+	await u.rm(TEMP_DIR);
+	l('\n\nfinish!\n\n')
 
 	return extracted;
 }
+
+/*
+----
+CLI
+----
+*/
+
 /**
  * @returns {Config}
  */
 function cli() {
+	if (process?.argv?.slice()?.pop()?.endsWith('.json')) {
+		try {
+			//@ts-ignore
+			const config = JSON.parse(readFileSync(path.resolve(process.argv.slice().pop())));
+			return config;
+		}
+		catch (e) {
+			//noop
+		}
+	}
+
 	const args = yargs(process.argv.splice(2))
-		.scriptName("amplitude-extract")
-		.command('$0', 'extract data from amplitude', () => { })
+		.scriptName("")
+		.command('$0', 'usage:\nnpx amp-ext --key foo --secret bar --start 2022-04-20 --end 2023-04-20', () => { })
 		.option("api_key", {
 			demandOption: true,
 			alias: "key",
@@ -240,7 +280,7 @@ function cli() {
 			type: 'string'
 		})
 		.option("logFile", {
-			demandOption: false,			
+			demandOption: false,
 			alias: "log",
 			describe: 'where to write logs',
 			type: 'string'
@@ -263,28 +303,57 @@ function cli() {
 	return args;
 }
 
-function l(data) {
-	log += `${data}\n`;
-	console.log(data);
+/*
+----
+LOGGING
+----
+*/
+
+function log(verbose) {
+	return function (data) {
+		if (u.isJSON(data)) {
+			logText += `${u.json(data)}\n`;
+		}
+		else {
+			logText += `${data}\n`;
+		}
+		
+		if (verbose) console.log(data);
+	};
 }
 
 function escapeForShell(arg) {
 	return `'${arg.replace(/'/g, `'\\''`)}'`;
 }
 
+const hero = String.raw`
+
+  __    _      ___       ____  _    _____ 
+ / /\  | |\/| | |_)     | |_  \ \_/  | |  
+/_/--\ |_|  | |_|       |_|__ /_/ \  |_|  
+	
+   the amplitude data vacuum  by AK
+`;
+
+/*
+----
+EXPORTS
+----
+*/
 export default main;
 
 if (esMain(import.meta)) {
+	console.log(hero);
 	const params = cli();
 
 	main(params)
 		.then(() => {
-			//noop
+			console.log(`\n\nhooray! all done!\n\n`);
 		}).catch((e) => {
-			l(`\nuh oh! something didn't work...\nthe error message is:\n\n\t${e.message}\n\n`);
+			console.log(`\n\nuh oh! something didn't work...\nthe error message is:\n\n\t${e.message}\n\n@\n\n${e.stack}\n\n`);
 
 		}).finally(() => {
-			l('\n\nhave a great day!\n\n');
+			console.log('\n\nhave a great day!\n\n');
 			process.exit(0);
 		});
 

@@ -34,5 +34,10 @@ interface Config {
     /**
      * file to write logs; must be a valid file path .... default is ./amplitude-data
      */
-    logFile: string;
+    logFile: string | false;
+	/**
+	 * log console output messages
+	 */
+	verbose: boolean
+
 }

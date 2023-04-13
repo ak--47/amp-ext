@@ -6,3 +6,4 @@ amplitude-data/*
 .DS_Store
 .vscode
 node_modules
+amplitude-export-log.txt
