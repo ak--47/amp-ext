@@ -18,26 +18,30 @@ interface Config {
     /**
      * region for data residency
      */
-    region: "US" | "EU";
+    region?: "US" | "EU";
     /**
      * unit of time to chunk
      */
-    time_unit: "day" | "hour" | "month";
+    time_unit?: "day" | "hour" | "month";
     /**
      * where to put temporary data; must be a valid file path .... default is ./tmp
      */
-    tempDir: string;
+    tempDir?: string;
     /**
      * where to put extracted data; must be a valid file path .... default is ./amplitude-data
      */
-    destDir: string;
+    destDir?: string;
     /**
      * file to write logs; must be a valid file path .... default is ./amplitude-data
      */
-    logFile: string | false;
+    logFile?: string | false;
 	/**
 	 * log console output messages
 	 */
-	verbose: boolean
+	verbose?: boolean
+	/**
+	 * remove all temporary + intermediate files
+	 */
+	cleanup?: boolean
 
 }

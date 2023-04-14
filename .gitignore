@@ -1,9 +1,11 @@
 scratch.js
 tmp/*
 !tmp/.gitkeep
-amplitude-data/*
-!amplitude-data/.gitkeep
+exports/*
+logs/*
+!logs/.gitkeep
+!exports/.gitkeep
 .DS_Store
 .vscode
 node_modules
-amplitude-export-log.txt
+.env

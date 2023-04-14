@@ -40,11 +40,12 @@ async function main(config) {
 		start_date,
 		end_date,
 		verbose = true,
+		cleanup = true,
 		region = "US",
 		time_unit = 'day',
 		tempDir = './tmp',
-		destDir = './amplitude-data',
-		logFile = `./amplitude-export-log.txt`
+		destDir = './exports',
+		logFile = `./logs/amplitude-export-log-${Date.now()}.txt`
 	} = config;
 	const l = log(verbose);
 	l('start\n\nsettings:');
@@ -81,7 +82,7 @@ async function main(config) {
 
 	// ? https://www.docs.developers.amplitude.com/analytics/apis/export-api/#endpoints
 	const url = region === 'US' ? 'https://amplitude.com/api/2/export' : 'https://analytics.eu.amplitude.com/api/2/export';
-	l(`\n\n\tDOWNLOAD\n\n`)
+	l(`\n\n\tDOWNLOAD\n\n`);
 	consumeData: for (const dates of datePairs) {
 		const logPair = `${dayjs.utc(dates.start).format(logFormat)} → ${dayjs.utc(dates.end).format(logFormat)}`;
 		try {
@@ -138,16 +139,16 @@ async function main(config) {
 		u.rm(empty);
 	}
 	const downloadedFiles = (await u.ls(TEMP_DIR)).filter(path => path.endsWith('.zip'));
-	
-	l(`\n\n\tUNZIP\n\n`)
-	
+
+	l(`\n\n\tUNZIP\n\n`);
+
 	unzip: for (const zipFile of downloadedFiles) {
 		l(`unzipping ${path.basename(zipFile)}`);
 		const fileId = zipFile.split('/').slice().pop().split('.')[0];
 		const dir = u.mkdir(path.resolve(`${TEMP_DIR}/${fileId}`));
 		try {
 			execSync(`unzip -j ${escapeForShell(zipFile)} -d ${escapeForShell(dir)}`);
-			await u.rm(zipFile);
+			if (cleanup) await u.rm(zipFile);
 			continue unzip;
 		} catch (e) {
 			const zipped = new zip(zipFile);
@@ -155,7 +156,7 @@ async function main(config) {
 			zipEntries.forEach(function (zipEntry) {
 				zipped.extractEntryTo(zipEntry.entryName, `${dir}`, false, true);
 			});
-			await u.rm(zipFile);
+			if (cleanup) await u.rm(zipFile);
 			continue unzip;
 		}
 	}
@@ -177,7 +178,7 @@ async function main(config) {
 	const writePath = path.resolve(DESTINATION_DIR);
 	let eventCount = 0;
 
-	l(`\n\n\tGUNZIP\n\n`)
+	l(`\n\n\tGUNZIP\n\n`);
 
 	ungzip: for (const file of gunzipped.flat()) {
 		l(`gunzipping ${path.basename(file)}`);
@@ -189,7 +190,7 @@ async function main(config) {
 			execSync(`gunzip -c ${source} > ${dest}`);
 			let numLines = execSync(`wc -l ${dest}`);
 			eventCount += Number(numLines.toString().split('/').map(x => x.trim())[0]);
-			await u.rm(file);
+			if (cleanup) await u.rm(file);
 			continue ungzip;
 
 		} catch (e) {
@@ -201,19 +202,22 @@ async function main(config) {
 			let numOfLines = rawData.split('\n').length - 1;
 			eventCount += numOfLines;
 			await u.touch(dest, rawData);
-			await u.rm(file);
+			if (cleanup) await u.rm(file);
 			continue ungzip;
 		}
 	}
 
 	for (const folder of folders) {
-		await u.rm(folder);
+		if (cleanup) await u.rm(folder);
 	}
 	const extracted = (await u.ls(DESTINATION_DIR)).filter(f => f.endsWith('.json'));
 	l(`\nextracted ${u.comma(extracted.length)} files for ${u.comma(eventCount)} events\n`);
-	if (LOG_FILE) await u.touch(path.resolve(LOG_FILE), logText);
-	await u.rm(TEMP_DIR);
-	l('\n\nfinish!\n\n')
+	if (LOG_FILE) {
+		if (LOG_FILE.includes("/logs/")) await u.mkdir(path.resolve('./logs'));
+		await u.touch(path.resolve(LOG_FILE), logText);
+	}
+	if (cleanup) await u.rm(TEMP_DIR);
+	l('\n\nfinish!\n\n');
 
 	return extracted;
 }
@@ -275,7 +279,7 @@ function cli() {
 		})
 		.option("destDir", {
 			demandOption: false,
-			default: "./amplitude-data",
+			default: "./exports",
 			describe: 'where to write files',
 			type: 'string'
 		})
@@ -317,7 +321,7 @@ function log(verbose) {
 		else {
 			logText += `${data}\n`;
 		}
-		
+
 		if (verbose) console.log(data);
 	};
 }
