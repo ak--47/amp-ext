@@ -56,6 +56,15 @@ describe('e2e', () => {
 		const run = execSync(`node ./index.js --key ${api_key} --secret ${api_secret} --start ${start_date} --end ${end_date} --region ${region} --unit ${time_unit} --tempDir ${tempDir} --cleanup ${cleanup} --verbose ${verbose}`);
 		expect(run.toString().trim().includes('hooray! all done!')).toBe(true);
 	});
+
+	test('dont gunzip', async () => {
+		console.log('MODULE TEST');
+		const results = await main({...CONFIG, gunzip: false});
+		const expected = ["/Users/ak/code/amp-ext/exports/302723_2021-09-17_17#0.json.gz", "/Users/ak/code/amp-ext/exports/302723_2021-09-21_16#0.json.gz", "/Users/ak/code/amp-ext/exports/302723_2021-09-26_18#0.json.gz", "/Users/ak/code/amp-ext/exports/302723_2021-09-27_23#0.json.gz"];
+		expect(results).toEqual(expected);
+	}, timeout);
+
+	
 });
 
 

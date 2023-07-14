@@ -43,5 +43,8 @@ interface Config {
 	 * remove all temporary + intermediate files
 	 */
 	cleanup?: boolean
-
+	/**
+	 * should gunzip files
+	 */
+	gunzip?: boolean
 }

@@ -45,7 +45,8 @@ async function main(config) {
 		time_unit = 'day',
 		tempDir = './tmp',
 		destDir = './exports',
-		logFile = `./logs/amplitude-export-log-${Date.now()}.txt`
+		logFile = `./logs/amplitude-export-log-${Date.now()}.txt`,
+		gunzip = true,
 	} = config;
 	const l = log(verbose);
 	l('start\n\nsettings:');
@@ -179,19 +180,23 @@ async function main(config) {
 	let eventCount = 0;
 
 	l(`\n\n\tGUNZIP\n\n`);
-
 	ungzip: for (const file of gunzipped.flat()) {
 		l(`gunzipping ${path.basename(file)}`);
 		const newFileName = path.basename(file).split('_').slice(1).join("_").split('.gz')[0];
 		const dest = path.resolve(`${writePath}/${newFileName}`);
 
 		try {
-			let source = escapeForShell(file);
-			execSync(`gunzip -c ${source} > ${dest}`);
-			let numLines = execSync(`wc -l ${dest}`);
-			eventCount += Number(numLines.toString().split('/').map(x => x.trim())[0]);
-			if (cleanup) await u.rm(file);
-			continue ungzip;
+			if (gunzip) {
+				let source = escapeForShell(file);
+				execSync(`gunzip -c ${source} > ${dest}`);
+				let numLines = execSync(`wc -l ${dest}`);
+				eventCount += Number(numLines.toString().split('/').map(x => x.trim())[0]);
+				if (cleanup) await u.rm(file);
+				continue ungzip;
+			}
+			else {
+				execSync(`cp ${escapeForShell(file)} ${path.resolve(writePath)}/`);
+			}
 
 		} catch (e) {
 			//@ts-ignore
@@ -210,7 +215,7 @@ async function main(config) {
 	for (const folder of folders) {
 		if (cleanup) await u.rm(folder);
 	}
-	const extracted = (await u.ls(DESTINATION_DIR)).filter(f => f.endsWith('.json'));
+	const extracted = (await u.ls(DESTINATION_DIR)).filter(f => f.endsWith('.json') || f.endsWith('.json.gz'));
 	l(`\nextracted ${u.comma(extracted.length)} files for ${u.comma(eventCount)} events\n`);
 	if (LOG_FILE) {
 		if (LOG_FILE.includes("/logs/")) await u.mkdir(path.resolve('./logs'));
@@ -300,6 +305,12 @@ function cli() {
 			alias: 'end',
 			describe: 'end date for extract',
 			type: 'string'
+		})
+		.option('gunzip', {
+			demandOption: false,
+			describe: 'gunzip files',
+			type: 'boolean',
+			default: true,
 		})
 		.help()
 		.argv;
