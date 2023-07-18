@@ -27,7 +27,7 @@ MAIN
 
 /**
  * pulls data out of amplitude
- * @param  {Config} config
+ * @param  {import('./types').Config} config
  */
 async function main(config) {
 	const creds = {
@@ -256,7 +256,7 @@ CLI
 */
 
 /**
- * @returns {Config}
+ * @returns {import('./types').Config}
  */
 function cli() {
 	if (process?.argv?.slice()?.pop()?.endsWith('.json')) {
