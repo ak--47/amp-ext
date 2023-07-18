@@ -86,9 +86,13 @@ async function main(config) {
 	l(`\n\n\tDOWNLOAD\n\n`);
 	consumeData: for (const dates of datePairs) {
 		const logPair = `${dayjs.utc(dates.start).format(logFormat)} → ${dayjs.utc(dates.end).format(logFormat)}`;
-		try {
-			await pipeline(
-				got.stream({
+		const download = () => new Promise(async (resolve, reject) => {
+			let retryStream = null;
+			let retry = false;
+			let error = null;
+	
+			while(true) {
+				const stream = retryStream ?? got.stream({
 					url,
 					searchParams: new URLSearchParams([['start', dates.start], ['end', dates.end]]),
 					headers: {
@@ -96,38 +100,56 @@ async function main(config) {
 						'Connection': 'keep-alive',
 					},
 					retry: {
-						limit: 1000,
+						limit: 100,
 						statusCodes: [429, 500, 501, 503, 504, 502],
-						errorCodes: [],
 						methods: ['GET'],
 						noise: 100
-
 					},
 					agent: {
 						https: new https.Agent({ keepAlive: true })
 					},
 					hooks: {
-						beforeRetry: [(req, resp, count) => {
-							try {
-								l(`got ${resp?.statusCode}...retrying request...#${count}`);
-							}
-							catch (e) {
-								//noop
-							}
+						beforeRetry: [(err, count) => {
+							l(`${logPair}: ERROR ${err?.response?.statusCode || "unknown"}...retrying request...#${count}`);
 						}]
 					}
-
-				}),
-				fs.createWriteStream(path.resolve(`${TEMP_DIR}/${dates.start}--${dates.end}.zip`))
-			);
-			l(`${logPair}: SUCCESS 200`);
-
-		}
-		catch (e) {
-			l(`${logPair}: ${e?.name || ""} ${e?.response?.statusCode || "unknown code"}; ${e?.message || "unknown error"}`);
+				});
+	
+				let writeStream = fs.createWriteStream(path.resolve(`${TEMP_DIR}/${dates.start}--${dates.end}.zip`));
+				
+				stream.once('retry', (retryCount, err, createRetryStream) => {
+					error = err;
+					retryStream = createRetryStream();
+					retry = true;
+				});
+	
+				try {
+					await pipeline(stream, writeStream);
+					l(`${logPair}: SUCCESS 200`);
+					resolve('success');
+					break;
+				} catch (err) {
+					error = err;
+					if (!retry) {
+						break;
+					}
+					retry = false;
+				}
+			}
+	
+			if (error) {
+				reject(error);
+			}
+		});
+	
+		try {
+			await download();
+		} catch (err) {			
+			l(`${logPair}: ERROR ${err?.response?.statusCode || "unknown"}... WILL NOT RETRY!`);
+			l(`\t${err?.response?.body}\n\n`)
 			continue consumeData;
 		}
-	}
+	};
 
 	const allFiles = (await u.ls(TEMP_DIR)).filter(path => path.endsWith('.zip'));
 	const emptyFiles = allFiles.map((path) => {
@@ -137,7 +159,7 @@ async function main(config) {
 		};
 	}).filter(f => f.size === 0).map(f => f.path);
 	for (const empty of emptyFiles) {
-		u.rm(empty);
+		await u.rm(empty);
 	}
 	const downloadedFiles = (await u.ls(TEMP_DIR)).filter(path => path.endsWith('.zip'));
 
@@ -148,7 +170,7 @@ async function main(config) {
 		const fileId = zipFile.split('/').slice().pop().split('.')[0];
 		const dir = u.mkdir(path.resolve(`${TEMP_DIR}/${fileId}`));
 		try {
-			execSync(`unzip -j ${escapeForShell(zipFile)} -d ${escapeForShell(dir)}`);
+			execSync(`unzip -o -j ${escapeForShell(zipFile)} -d ${escapeForShell(dir)}`);
 			if (cleanup) await u.rm(zipFile);
 			continue unzip;
 		} catch (e) {
