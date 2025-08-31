@@ -15,8 +15,8 @@ const api_secret = process.env.AMP_API_SECRET;
 const CONFIG = {
 	api_key,
 	api_secret,
-	start_date: "2021-09-17",
-	end_date: "2021-09-29",
+	start_date: "2024-04-01",
+	end_date: "2024-04-11",
 	region: 'US',
 	time_unit: 'day',
 	tempDir: "./tmp",
